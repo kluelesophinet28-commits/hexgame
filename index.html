@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>六边形2048</title>
+<meta name="description" content="六边形数字合成益智游戏：放置数字块，4 个相同相连即可合成更大的数字。">
+<meta name="theme-color" content="#1b1640">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="六边形2048">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div class="brand"><span class="logo-hex">⬢</span><div><h1>六边形2048</h1><div class="minis"><button id="modeChip" class="chip" aria-label="切换玩法">四连合成 ▾</button><button id="btnRestart" class="mini" aria-label="重新开始">⟳</button><button id="btnSound" class="mini" aria-label="音效"><span id="iSound">🔊</span></button><button id="btnMenu" class="mini" aria-label="规则">☰</button></div></div></div>
+    <div class="scores">
+      <div class="scorebox"><span>分数</span><b id="score">0</b></div>
+      <div class="scorebox best"><span>最高</span><b id="best">0</b></div>
+    </div>
+  </header>
+  <main id="stage">
+    <div id="board" aria-label="棋盘">
+      <div id="cellsLayer"></div>
+      <div id="tilesLayer"></div>
+      <div id="fxLayer"></div>
+    </div>
+    <div id="hintText"></div>
+  </main>
+  <section id="side">
+    <div id="trayWrap">
+      <div id="tray">
+        <div id="current" class="slot"></div>
+        <div id="nextList"></div>
+      </div>
+      <div id="trayTip">拖动数字块到棋盘（或点空格放置）</div>
+    </div>
+    <nav id="tools">
+      <button id="btnReroll" class="tool" title="更换即将出现的数字"><i>🎲</i><span>换数字</span></button>
+      <button id="btnForce" class="tool" title="强制合成"><i>⚡</i><span>强制合成</span></button>
+      <button id="btnClear1" class="tool" title="清除一格"><i>🔨</i><span>清除一格</span></button>
+      <button id="btnClear5" class="tool" title="随机清除 5 格"><i>💥</i><span>随机清5</span></button>
+      <button id="btnClearType" class="tool" title="清除同类"><i>🧹</i><span>清除同类</span></button>
+      <button id="btnUndo" class="tool" title="撤销"><i>↶</i><span>撤销</span></button>
+    </nav>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<div id="overModal" class="modal hidden" role="dialog">
+  <div class="card">
+    <h2>游戏结束</h2>
+    <p class="big" id="overScore">0</p>
+    <p id="overBest"></p>
+    <div class="row" id="overItems"></div>
+    <div class="row"><button class="primary" id="overRestart">再来一局</button></div>
+  </div>
+</div>
+
+<div id="menuModal" class="modal hidden" role="dialog">
+  <div class="card wide">
+    <h2>玩法与设置</h2>
+    <div id="modeList"></div>
+    <div class="setrow"><label>棋盘大小</label>
+      <div class="seg" id="sizeSeg"><button data-r="2">小·19格</button><button data-r="3">中·37格</button><button data-r="4">大·61格</button></div></div>
+    <div class="setrow"><label>音效</label><button class="toggle" id="tSound"></button></div>
+    <div class="setrow"><label>震动（安卓）</label><button class="toggle" id="tVibe"></button></div>
+    <div id="rules"></div>
+    <p class="fine">进度每一步自动保存，下次打开自动继续。切换玩法/棋盘大小会各自保存进度。</p>
+    <div class="row"><button class="primary" id="menuClose">继续游戏</button></div>
+  </div>
+</div>
+
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
