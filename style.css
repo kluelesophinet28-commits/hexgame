@@ -145,3 +145,10 @@ h1{margin:0;font-size:22px;letter-spacing:1px;white-space:nowrap}
   #trayTip{display:none}
   #trayWrap{padding:3px 8px}
 }
+
+/* 深色文字（浅色方块）不用白色描边阴影 */
+.hex.face.dark{text-shadow:0 1px 0 rgba(255,255,255,.45)}
+/* 顶级 / 超出调色板：光晕 */
+.inner.glow{filter:drop-shadow(0 0 6px var(--glow)) drop-shadow(0 0 2px var(--glow))}
+.inner.glow .hex.face::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.35) 50%,rgba(255,255,255,0) 70%);background-size:250% 100%;animation:shine 2.4s linear infinite}
+@keyframes shine{from{background-position:150% 0}to{background-position:-100% 0}}

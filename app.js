@@ -22,8 +22,14 @@
     move: ['棋盘上已有数字块。点选一个数字块（高亮，可到达的空格会亮起），再点一个空格：只要有空格连成的通路就能移动过去，被挡住则「过不去」，不算一步。', '移动后若有 <b>4 个或更多</b>相同数字相连，合成为 <b>4 倍</b>（四个 1 → 4，四个 2 → 8，四个 4 → 16，四个 8 → 32 …），出现在移动到的位置，可连锁。', '这一步<b>没有合成</b>：上方「即将出现」的 5 个数字会落到随机空格；有合成则不落新块。', '新数字随进度变大：开始以 1、2 为主，最大不超过棋盘最大块的 1/4。', '道具全部无限次：🎲 换数字、⚡ 强制合成、🔨 清除一格、💥 随机清5、🧹 清除同类、↶ 撤销（最多 50 步）。', '棋盘满了游戏结束。'],
     slide: ['向 6 个方向滑动（键盘 Q/W/E/A/S/D/Z/C 或方向键）。', '相同数字相撞合成为 2 倍，每块每步只合成一次。', '每次有效滑动后随机出现一个 2 或 4。', '六个方向都动不了时游戏结束。'],
   };
-  const PALETTE = ['#5ec8ff', '#ffbf2e', '#33d69f', '#ff7f3f', '#5576ff', '#ff4f8b', '#a35cff', '#19c9bf', '#ff4545', '#9fd63a', '#ff8fd8', '#6f55ff', '#ffd400', '#00d0ff', '#e9e6ff', '#ff6a00'];
-  const colorOf = (v) => PALETTE[Math.round(Math.log2(v)) % PALETTE.length];
+  // 1 系（1,4,16,64…，log2 为偶数）= 暖色；2 系（2,8,32,128…，log2 为奇数）= 冷色。[底色, 文字色]
+  const WARM = [['#fff1a1', '#5a3d00'], ['#ffc83d', '#4a2c00'], ['#ff8a1f', '#fff'], ['#ff5f2e', '#fff'], ['#e8323c', '#fff'], ['#c4134f', '#fff'], ['#a3126e', '#fff']];
+  const COOL = [['#a6f3ff', '#0b3a4a'], ['#1fa2ec', '#fff'], ['#2a72f0', '#fff'], ['#3d3fcf', '#fff'], ['#7442e0', '#fff'], ['#5626a8', '#fff'], ['#3c1680', '#fff']];
+  function tileStyle(v) {
+    const n = Math.max(0, Math.round(Math.log2(v))); const warm = n % 2 === 0; const pal = warm ? WARM : COOL; const i = Math.floor(n / 2);
+    return { bg: pal[Math.min(i, pal.length - 1)][0], fg: pal[Math.min(i, pal.length - 1)][1], warm, over: i >= pal.length - 1 }; // over：顶级色（含超出调色板）加光晕
+  }
+  const colorOf = (v) => tileStyle(v).bg;
 
   // ---------------- settings & state ----------------
   const settings = Object.assign({ mode: 'move', sizes: {}, sound: true, vibe: true }, readJSON(LS + 'settings') || {});
@@ -142,8 +148,9 @@
     return Math.max(6, Math.min(byH, byW) * k);
   }
   function hexFace(v, w, h, s, k) {
-    const col = colorOf(v);
-    return `<div class="inner"><div class="hex base" style="background:${col}"></div><div class="hex face" style="background:${col};font-size:${fontFor(v, w, h, k)}px"><span class="num">${v}</span></div></div>`;
+    const st = tileStyle(v); const col = st.bg; const dark = st.fg !== '#fff';
+    const glow = st.over ? ` glow" style="--glow:${st.warm ? 'rgba(255,90,140,.85)' : 'rgba(150,110,255,.9)'}` : '';
+    return `<div class="inner${glow}"><div class="hex base" style="background:${col}"></div><div class="hex face${dark ? ' dark' : ''}" style="background:${col};color:${st.fg};font-size:${fontFor(v, w, h, k)}px"><span class="num">${v}</span></div></div>`;
   }
   function makeTile(t, k, anim) {
     const { w, h } = hexSize(); const d = document.createElement('div');
