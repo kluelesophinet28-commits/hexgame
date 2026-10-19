@@ -35,10 +35,15 @@
       spawn: [[2, 40], [4, 32], [8, 18], [16, 10, 64], [32, 5, 256]],
       items: { reroll: 2, force: 1 },
     },
-    move: {             // 移动版（4 Hexa 式）—— 点选数字块沿通路移到空格，4 连 ×4，未合成则随机落下 3 块
-      kind: 'move', radius: 3, minGroup: 4, chainMinGroup: 4, factor: 4, explodeAt: 0,
-      spawnCount: 3, startTiles: 8,
-      spawn: [[1, 40], [2, 40], [4, 12], [8, 8]],
+    move: {             // 默认（用户确认的原版玩法）：点选棋盘上的块→点空格移动；4 连 ×4；之后从「即将出现」队列落下新块
+      kind: 'move', radius: 'rect', minGroup: 4, chainMinGroup: 4, factor: 4, explodeAt: 0,
+      queue: 5,           // 显示的即将出现数量
+      spawnNoMerge: 5,    // 本步没有合成：落下几个（取队列前 N 个）
+      spawnOnMerge: 0,    // 本步有合成：落下几个
+      spawnResolve: true, // 落下的块若凑成 4 连也会合成
+      needPath: true,     // 默认需要空格通路（BFS）；false = 可瞬移到任意空格
+      startTiles: 7,
+      scale: true,        // 新块数值随进度增长（不超过 最大块/4）
       items: { reroll: 0, force: 1 },
     },
     slide: { kind: 'slide', radius: 2, four: 0.1, items: { reroll: 0, force: 0 } }, // 六向滑动 2048（19 格）
@@ -49,10 +54,21 @@
   const newTile = (v) => ({ id: nextId++, v });
   function setNextId(n) { nextId = Math.max(nextId, n); }
 
+  /** 矩形蜂巢（平顶、奇数列上移半格），cols×rows；原版截图为 5 列 × 8 行 = 40 格 */
+  function makeRectCells(cols, rows) {
+    const cells = []; const c0 = Math.floor((cols - 1) / 2), r0 = Math.floor((rows - 1) / 2);
+    for (let col = 0; col < cols; col++) for (let row = 0; row < rows; row++) {
+      const q = col - c0; const r = (row - r0) - (q + (q & 1)) / 2;
+      cells.push({ q, r, k: key(q, r) });
+    }
+    return cells;
+  }
   class Board {
-    constructor(radius) {
-      this.radius = radius;
-      this.cells = makeCells(radius);
+    /** shape: 数字=六边形半径；'rect' 或 [cols, rows] = 矩形蜂巢 */
+    constructor(shape) {
+      this.radius = shape;
+      this.rect = shape === 'rect' ? [5, 8] : Array.isArray(shape) ? shape : null;
+      this.cells = this.rect ? makeRectCells(this.rect[0], this.rect[1]) : makeCells(shape);
       this.set = new Set(this.cells.map((c) => c.k));
       this.t = {}; // key -> tile
     }
@@ -198,18 +214,48 @@
     return path;
   }
   /** 沿通路移动；无合成则随机生成 spawnCount 块。返回 { ok, path, steps, score, spawned } */
-  function moveTile(board, from, to, cfg, rand) {
-    const path = findPath(board, from, to); if (!path) return { ok: false };
+  /** 随进度缩放的新块数值：1、2 为主；允许的最大值 = max(2, 最大块/4)，越大越少见 */
+  function scaledValue(maxOnBoard, rand) {
+    const cap = Math.max(2, Math.floor(maxOnBoard / 4)); const pool = [];
+    for (let v = 1; v <= cap; v *= 2) pool.push([v, Math.pow(0.6, Math.max(0, Math.log2(v) - 1))]);
+    const tot = pool.reduce((a, p) => a + p[1], 0); let x = rng(rand) * tot;
+    for (const p of pool) if ((x -= p[1]) < 0) return p[0];
+    return 1;
+  }
+  function nextValue(board, cfg, rand) { return cfg.scale ? scaledValue(board.maxValue(), rand) : randomValue(board.maxValue(), rand, cfg); }
+  function fillQueue(board, queue, cfg, rand) { while (queue.length < (cfg.queue || 5)) queue.push(nextValue(board, cfg, rand)); return queue; }
+
+  /**
+   * 移动一步：from → to（空格）。之后按规则从 queue 前端取值落到随机空格，并补满队列。
+   * 返回 { ok, path, steps, score, merges, combo, spawned:[{k,id,v}], spawnSteps }
+   */
+  function moveTile(board, from, to, cfg, rand, queue) {
+    if (!board.t[from] || board.t[to] || !board.set.has(to)) return { ok: false };
+    const path = cfg.needPath === false ? [from, to] : findPath(board, from, to); if (!path) return { ok: false };
     board.t[to] = board.t[from]; delete board.t[from];
-    const r = resolve(board, [to], cfg); r.ok = true; r.path = path; r.spawned = [];
-    if (!r.merges) {
-      for (let i = 0; i < cfg.spawnCount; i++) {
-        const e = board.empty(); if (!e.length) break;
-        const k = e[Math.floor(rng(rand) * e.length)];
-        const t = newTile(randomValue(board.maxValue(), rand, cfg)); board.t[k] = t; r.spawned.push({ k, id: t.id, v: t.v });
-      }
+    const r = resolve(board, [to], cfg); r.ok = true; r.path = path; r.spawned = []; r.spawnSteps = [];
+    const n = r.merges ? (cfg.spawnOnMerge ?? 0) : (cfg.spawnNoMerge ?? cfg.spawnCount ?? 3);
+    queue = queue || [];
+    for (let i = 0; i < n; i++) {
+      const e = board.empty(); if (!e.length) break;
+      fillQueue(board, queue, cfg, rand);
+      const k = e[Math.floor(rng(rand) * e.length)];
+      const t = newTile(queue.shift()); board.t[k] = t; r.spawned.push({ k, id: t.id, v: t.v });
     }
+    fillQueue(board, queue, cfg, rand);
+    if (cfg.spawnResolve && r.spawned.length) {
+      const rs = resolve(board, r.spawned.map((x) => x.k).filter((k) => board.t[k]), cfg, { combo: r.combo });
+      r.spawnSteps = rs.steps; r.score += rs.score; r.merges += rs.merges; r.combo = rs.combo;
+      if (rs.merges) fillQueue(board, queue, cfg, rand);
+    }
+    r.queue = queue;
     return r;
+  }
+  /** 从 from 出发经空格可到达的所有空格 */
+  function reachable(board, from) {
+    const seen = new Set([from]); const q = [from]; const out = [];
+    while (q.length) { const c = q.shift(); for (const n of board.neighbors(c)) if (!seen.has(n) && !board.t[n]) { seen.add(n); q.push(n); out.push(n); } }
+    return out;
   }
   function canMoveAny(board) {
     const e = board.empty(); if (!e.length) return false;
@@ -265,7 +311,7 @@
     return false;
   }
 
-  const api = { clearCells, clearRandom, clearType, DIRS, DEFAULTS, PRESETS, resolve, forceMerge, findPath, moveTile, canMoveAny, key, parse, makeCells, Board, newTile, setNextId,
+  const api = { reachable, scaledValue, nextValue, fillQueue, makeRectCells, clearCells, clearRandom, clearType, DIRS, DEFAULTS, PRESETS, resolve, forceMerge, findPath, moveTile, canMoveAny, key, parse, makeCells, Board, newTile, setNextId,
     randomValue, randomPiece, pieceOffsets, rotatePiece, pieceTargets, canPlaceAnywhere, groupOf, placePiece,
     lines, slide, spawn, canSlide };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.HexLogic = api;

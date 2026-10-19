@@ -10,21 +10,25 @@
   const MODES = {
     four: { name: '四连合成', desc: '放置随机数字块，4 个及以上相同数字相连 → 合成为 4 倍（1→4→16→64…，2→8→32→128…），可连锁。', tip: '拖动数字块到棋盘（或直接点空格放置）' },
     three: { name: '三消合成', desc: '单格/双格棋子（点一下可旋转），3 个相同相连 → 翻倍，连消时 2 个即可；合成 2048 会爆炸清除周围一圈。', tip: '拖动棋子到棋盘 · 点棋子旋转' },
-    move: { name: '移动合成', desc: '点选一个数字块，再点一个空格，沿空路移动过去；4 个相同相连 → 4 倍。若没有合成，会随机掉落 3 个新块。', tip: '点选数字块，再点空格移动' },
+    move: { name: '经典移动', desc: '原版玩法：点选棋盘上的数字块，再点空格沿通路移动过去；4 个及以上相同相连 → 4 倍。没合成时，上方「即将出现」的 5 个数字会落到随机空格。', tip: '点选数字块，再点空格移动' },
     slide: { name: '六向滑动', desc: '经典 2048 的六边形版：向 6 个方向滑动，所有块一起移动，两个相同相撞 → 翻倍。', tip: '在棋盘上向 6 个方向滑动' },
   };
-  const DEFAULT_SIZE = { four: 3, three: 3, move: 3, slide: 2 };
+  const DEFAULT_SIZE = { four: 3, three: 3, move: 'rect', slide: 2 };
+  const SIZES = { move: [['rect', '原版·40格'], [3, '37格'], [4, '61格']], other: [[2, '小·19格'], [3, '中·37格'], [4, '大·61格']] };
+  const MODE_ORDER = ['move', 'four', 'three', 'slide'];
   const RULES = {
     four: ['每回合得到一个随机数字块（下方显示接下来的块）。', '把它放到任意空格。', '<b>4 个或更多</b>相同数字相连时，合成为 <b>4 倍</b>，出现在最后放下的位置：四个 1 → 4，四个 2 → 8，四个 4 → 16，四个 8 → 32 …', '合成后的新数字若又凑够 4 个相连，会继续连锁合成，分数按连击倍增。', '道具（无限次，均可撤销）：🎲 换数字 —— 更换即将出现的数字；⚡ 强制合成 —— 点选一组相连的相同数字（≥2 个）直接合成；🔨 清除一格；💥 随机清除 5 格；🧹 清除同类 —— 点一个数字，清除棋盘上所有相同数字；↶ 撤销 —— 最多连续撤销 50 步。', '棋盘放满（无处可放）即游戏结束。'],
     three: ['把下方棋子拖到棋盘空位，双格棋子点一下可旋转。', '3 个或以上相同数字相连 → 合成为 2 倍；连消时只需 2 个相同。', '合成出 2048 会爆炸，清除它周围一圈。', '没有位置能放下当前棋子时游戏结束。'],
-    move: ['点选一个数字块，再点空格：只要中间有通路就能移动过去。', '4 个或以上相同数字相连 → 4 倍。', '如果这一步没有合成，棋盘会随机掉落 3 个新块。', '棋盘满了游戏结束。'],
+    move: ['棋盘上已有数字块。点选一个数字块（高亮，可到达的空格会亮起），再点一个空格：只要有空格连成的通路就能移动过去，被挡住则「过不去」，不算一步。', '移动后若有 <b>4 个或更多</b>相同数字相连，合成为 <b>4 倍</b>（四个 1 → 4，四个 2 → 8，四个 4 → 16，四个 8 → 32 …），出现在移动到的位置，可连锁。', '这一步<b>没有合成</b>：上方「即将出现」的 5 个数字会落到随机空格；有合成则不落新块。', '新数字随进度变大：开始以 1、2 为主，最大不超过棋盘最大块的 1/4。', '道具全部无限次：🎲 换数字、⚡ 强制合成、🔨 清除一格、💥 随机清5、🧹 清除同类、↶ 撤销（最多 50 步）。', '棋盘满了游戏结束。'],
     slide: ['向 6 个方向滑动（键盘 Q/W/E/A/S/D/Z/C 或方向键）。', '相同数字相撞合成为 2 倍，每块每步只合成一次。', '每次有效滑动后随机出现一个 2 或 4。', '六个方向都动不了时游戏结束。'],
   };
   const PALETTE = ['#5ec8ff', '#ffbf2e', '#33d69f', '#ff7f3f', '#5576ff', '#ff4f8b', '#a35cff', '#19c9bf', '#ff4545', '#9fd63a', '#ff8fd8', '#6f55ff', '#ffd400', '#00d0ff', '#e9e6ff', '#ff6a00'];
   const colorOf = (v) => PALETTE[Math.round(Math.log2(v)) % PALETTE.length];
 
   // ---------------- settings & state ----------------
-  const settings = Object.assign({ mode: 'four', sizes: {}, sound: true, vibe: true }, readJSON(LS + 'settings') || {});
+  const settings = Object.assign({ mode: 'move', sizes: {}, sound: true, vibe: true }, readJSON(LS + 'settings') || {});
+  if (!(settings.ver >= 2)) { settings.ver = 2; settings.mode = 'move'; delete settings.sizes.move; } // v2：默认改为原版移动玩法
+  if (!L.PRESETS[settings.mode]) settings.mode = 'move';
   function readJSON(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
   function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 存储已满或隐私模式 */ } }
   const saveSettings = () => writeJSON(LS + 'settings', settings);
@@ -61,15 +65,24 @@
       // 开局随机放 3 个小数字（互不成组）
       for (let i = 0; i < 3; i++) { const e = b.empty(); const k = e[Math.floor(Math.random() * e.length)]; b.t[k] = L.newTile(c.spawn[i % 2][0]); }
     } else if (c.kind === 'move') {
-      for (let i = 0; i < c.startTiles; i++) { const e = b.empty(); const k = e[Math.floor(Math.random() * e.length)]; b.t[k] = L.newTile(L.randomValue(0, null, c)); }
+      for (let i = 0; i < c.startTiles; i++) { const e = b.empty(); const k = e[Math.floor(Math.random() * e.length)]; b.t[k] = L.newTile(L.nextValue(b, c)); }
       L.resolve(b, Object.keys(b.t), c); // 避免开局就有 4 连
+      L.fillQueue(b, G.queue, c);
     } else { L.spawn(b, c); L.spawn(b, c); }
     save();
   }
   function loadOrNew() {
     const d = readJSON(LS + 'state:' + slotKey());
-    if (d && d.v === 1) { G = fromData(d); const c = cfg(); if (c.kind === 'place') { if (!G.queue.length) newGame(); else while (G.queue.length < c.queue) G.queue.push(L.randomPiece(G.board, c)); } }
-    else newGame();
+    let ok = false;
+    try {
+      if (d && d.v === 1) {
+        G = fromData(d); const c = cfg(); ok = true;
+        if (c.kind === 'place') { if (!G.queue.length || typeof G.queue[0] !== 'object') ok = false; else while (G.queue.length < c.queue) G.queue.push(L.randomPiece(G.board, c)); }
+        if (c.kind === 'move') { G.queue = G.queue.filter((v) => typeof v === 'number'); L.fillQueue(G.board, G.queue, c); }
+        if (!G.board.cells.length) ok = false;
+      }
+    } catch (e) { ok = false; } // 旧存档损坏 → 新开一局
+    if (!ok) newGame();
   }
   const HIST_MAX = 50; // 撤销历史最多 50 步（随自动存档一起保存）
   function pushHist(snap) { G.hist.push(snap); if (G.hist.length > HIST_MAX) G.hist.splice(0, G.hist.length - HIST_MAX); }
@@ -78,31 +91,39 @@
   // ---------------- geometry ----------------
   // 轴坐标 → 像素偏移；flat=平顶（竖屏更大），否则尖顶（横屏更大）
   // sy：竖向拉伸系数（≤1.18），让棋盘在宽度受限时也能填满高度
-  function axialPx(q, r, s, flat, sy = geo.sy || 1) { return flat ? { x: s * 1.5 * q, y: sy * s * SQ3 * (r + q / 2) } : { x: s * SQ3 * (q + r / 2), y: sy * s * 1.5 * r }; }
+  function axialPx(q, r, s, flat, sy = geo.sy || 1, sx = geo.sx || 1) { return flat ? { x: sx * s * 1.5 * q, y: sy * s * SQ3 * (r + q / 2) } : { x: sx * s * SQ3 * (q + r / 2), y: sy * s * 1.5 * r }; }
   function cellPos(k) { const { q, r } = L.parse(k); const p = axialPx(q, r, geo.s, geo.flat); return { x: geo.ox + p.x, y: geo.oy + p.y }; }
-  const SY_MAX = 1.45;
+  const SY_MAX = 1.45, SX_MAX = 1.3;
   function computeGeo() {
-    const st = $('stage').getBoundingClientRect(); const R = radius();
+    const st = $('stage').getBoundingClientRect();
     const W = st.width, H = st.height;
-    const A = SQ3 * (2 * R + 1), B = 3 * R + 2 + 0.1; // 长边/短边（以 s 为单位）
-    const sPointy = Math.min(W / A, H / B), sFlat = Math.min(W / B, H / A);
-    const flat = sFlat > sPointy; const s = Math.max(8, flat ? sFlat : sPointy);
-    geo = { s, flat, w: flat ? B * s : A * s, h: flat ? A * s : B * s };
-    geo.sy = Math.max(1, Math.min(SY_MAX, H / geo.h)); geo.h *= geo.sy; geo.ox = geo.w / 2; geo.oy = geo.h / 2;
+    const bounds = (flat) => { // 以 s=1 计算棋盘外接框
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; const hw = flat ? 1 : SQ3 / 2, hh = flat ? SQ3 / 2 : 1;
+      for (const c of G.board.cells) { const p = axialPx(c.q, c.r, 1, flat, 1, 1); x0 = Math.min(x0, p.x - hw); x1 = Math.max(x1, p.x + hw); y0 = Math.min(y0, p.y - hh); y1 = Math.max(y1, p.y + hh); }
+      return { x0, y0, w: x1 - x0, h: y1 - y0 + 0.08 };
+    };
+    const bf = bounds(true), bp = bounds(false);
+    const sFlat = Math.min(W / bf.w, H / bf.h), sPointy = G.board.rect ? 0 : Math.min(W / bp.w, H / bp.h); // 矩形棋盘固定平顶
+    const flat = sFlat >= sPointy; const bb = flat ? bf : bp; const s = Math.max(8, flat ? sFlat : sPointy);
+    geo = { s, flat, w: bb.w * s, h: bb.h * s };
+    geo.sy = Math.max(1, Math.min(SY_MAX, H / geo.h)); geo.h *= geo.sy;
+    geo.sx = Math.max(1, Math.min(SX_MAX, W / geo.w)); geo.w *= geo.sx; // 高度受限时横向适度拉伸
+    geo.ox = -bb.x0 * s * geo.sx; geo.oy = (-bb.y0 + 0.04) * s * geo.sy;
     document.body.classList.toggle('flat', flat);
     return st;
   }
   function layout() {
     // 竖屏时棋盘受宽度限制：把多余的竖向空间分给托盘（更大的拖拽块），减少棋盘上下空白
     const root = document.documentElement.style; root.setProperty('--trayH', '');
+    renderTray(); // 先切换好托盘/队列的显示，再测量舞台尺寸
     const st = computeGeo(); const portrait = getComputedStyle($('app')).display !== 'grid';
     const isPlace = cfg().kind === 'place';
-    if (!portrait) { root.setProperty('--trayH', '130px'); computeGeo(); }
+    if (!portrait && isPlace) { root.setProperty('--trayH', '130px'); computeGeo(); }
     // 竖屏：托盘保持紧凑，多余高度全部交给棋盘（竖向拉伸）
     const bd = $('board'); bd.style.width = geo.w + 'px'; bd.style.height = geo.h + 'px';
     buildCells(); els.forEach((e) => e.remove()); els.clear(); syncTiles(); renderTray();
   }
-  function hexSize(scale = 0.94, s = geo.s) { const sy = geo.sy || 1; return geo.flat ? { w: 2 * s * scale, h: sy * SQ3 * s * scale } : { w: SQ3 * s * scale, h: sy * 2 * s * scale }; }
+  function hexSize(scale = 0.94, s = geo.s) { const sy = geo.sy || 1, sx = geo.sx || 1; return geo.flat ? { w: sx * 2 * s * scale, h: sy * SQ3 * s * scale } : { w: sx * SQ3 * s * scale, h: sy * 2 * s * scale }; }
   function buildCells() {
     const L1 = $('cellsLayer'); L1.innerHTML = ''; cellEls.clear();
     const { w, h } = hexSize(0.97);
@@ -159,10 +180,11 @@
     slot.appendChild(p.box);
   }
   function renderTray() {
-    const c = cfg(); const isPlace = c.kind === 'place';
-    $('tray').classList.toggle('hidden', !isPlace);
+    const c = cfg(); const isPlace = c.kind === 'place', isMove = c.kind === 'move';
+    $('trayWrap').classList.toggle('hidden', !isPlace);
+    $('queueBar').classList.toggle('hidden', !isMove);
     $('trayTip').textContent = MODES[settings.mode].tip;
-    $('btnReroll').classList.toggle('hidden', !isPlace);
+    $('btnReroll').classList.toggle('hidden', !isPlace && !isMove);
     $('btnForce').classList.toggle('hidden', c.kind === 'slide');
     ['btnReroll', 'btnForce', 'btnClear1', 'btnClear5', 'btnClearType'].forEach((id) => { $(id).disabled = busy; }); // 道具无限次
     $('btnUndo').disabled = !G.hist.length || busy;
@@ -173,6 +195,11 @@
     $('score').textContent = G.score; $('best').textContent = bestOf();
     $('iSound').textContent = settings.sound ? '🔊' : '🔇';
     $('tools').style.gridTemplateColumns = `repeat(${[...$('tools').children].filter((b) => !b.classList.contains('hidden')).length},1fr)`;
+    if (isMove) { // 顶部「即将出现」队列
+      const row = $('qRow'); row.innerHTML = '';
+      G.queue.forEach((v, i) => { const d = document.createElement('div'); d.className = 'slot' + (i === 0 ? ' first' : ''); row.appendChild(d); placeInSlot(d, { values: [v], orient: 0 }, Math.min(d.clientWidth / 2.05, d.clientHeight / (geo.flat ? 1.8 : 2.1) / (geo.sy || 1))); });
+      return;
+    }
     if (!isPlace) return;
     const cur = $('current'); const s0 = Math.min(geo.s, cur.clientHeight / 2.4, cur.clientWidth / (G.queue[0] && G.queue[0].values.length > 1 ? 4.4 : 2.2), 50);
     placeInSlot(cur, G.queue[0], s0);
@@ -289,17 +316,21 @@
     return true;
   }
   function doMove(from, to) {
-    const c = cfg(); const path = L.findPath(G.board, from, to);
-    if (!path) { const e = els.get(G.board.t[from].id); e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake'); SFX.bad(); vibe(30); return; }
+    const c = cfg(); const path = c.needPath === false ? [from, to] : L.findPath(G.board, from, to);
+    if (!path) { // 过不去：不消耗回合，保持选中
+      const e = els.get(G.board.t[from].id); e.classList.remove('shake'); void e.offsetWidth; e.classList.add('shake');
+      const ce = cellEls.get(to); if (ce) { ce.classList.add('bad'); setTimeout(() => ce.classList.remove('bad'), 350); }
+      toast('过不去！路被挡住了'); SFX.bad(); vibe(30); return;
+    }
     run(async () => {
-      snapshot(); const tile = G.board.t[from]; const e = els.get(tile.id); e.classList.remove('sel'); G.sel = null;
-      const res = L.moveTile(G.board, from, to, c); afterLogic(res);
+      snapshot(); const tile = G.board.t[from]; const e = els.get(tile.id); e.classList.remove('sel'); G.sel = null; clearHints();
+      const res = L.moveTile(G.board, from, to, c, null, G.queue); afterLogic(res); renderTray();
       e.style.transition = 'transform .06s linear';
       for (const k of path.slice(1)) { setTilePos(e, k); await sleep(60); }
       e.style.transition = ''; SFX.place();
       await playSteps(res.steps);
-      for (const sp of res.spawned) { makeTile({ id: sp.id, v: sp.v }, sp.k, 'pop'); await sleep(70); }
-      if (res.spawned.length) SFX.rotate();
+      for (const sp of res.spawned) { makeTile({ id: sp.id, v: sp.v }, sp.k, 'pop'); SFX.rotate(); await sleep(80); }
+      if (res.spawnSteps && res.spawnSteps.length) await playSteps(res.spawnSteps);
     });
   }
   function doSlide(dir) {
@@ -361,7 +392,7 @@
   }
   function doReroll() {
     if (busy) return; const c = cfg();
-    snapshot(); G.queue = G.queue.map(() => L.randomPiece(G.board, c)); SFX.item(); vibe(10);
+    snapshot(); G.queue = c.kind === 'move' ? G.queue.map(() => L.nextValue(G.board, c)) : G.queue.map(() => L.randomPiece(G.board, c)); SFX.item(); vibe(10);
     save(); renderTray(); const cur = $('current'); cur.classList.remove('pop'); checkOver();
   }
   function doUndo() {
@@ -403,7 +434,7 @@
   function boardPoint(cx, cy) { const r = $('board').getBoundingClientRect(); return { x: cx - r.left, y: cy - r.top }; }
   function nearestCell(x, y, maxD) {
     let best = null, bd = Infinity;
-    for (const c of G.board.cells) { const p = cellPos(c.k); const d = Math.hypot(p.x - x, (p.y - y) / geo.sy); if (d < bd) { bd = d; best = c.k; } }
+    for (const c of G.board.cells) { const p = cellPos(c.k); const d = Math.hypot((p.x - x) / geo.sx, (p.y - y) / geo.sy); if (d < bd) { bd = d; best = c.k; } }
     return bd <= (maxD ?? geo.s * 0.95) ? best : null;
   }
   function clearHints() { cellEls.forEach((e) => e.classList.remove('hint', 'bad', 'target')); }
@@ -455,7 +486,7 @@
     if (busy || (G.over && !G.tool)) return; const kind = cfg().kind; const dist = Math.hypot(dx, dy);
     if (kind === 'slide') {
       if (dist < 24) return;
-      const ang = Math.atan2(dy / geo.sy, dx) * 180 / Math.PI; const dir = ((Math.round(((geo.flat ? 30 : 0) - ang) / 60) % 6) + 6) % 6; doSlide(dir); return;
+      const ang = Math.atan2(dy / geo.sy, dx / geo.sx) * 180 / Math.PI; const dir = ((Math.round(((geo.flat ? 30 : 0) - ang) / 60) % 6) + 6) % 6; doSlide(dir); return;
     }
     if (dist > 14) return;
     const bp = boardPoint(ev.clientX, ev.clientY); const k = nearestCell(bp.x, bp.y); if (!k) return;
@@ -465,9 +496,10 @@
     if (kind === 'place') { if (!G.board.t[k]) doPlace(k); return; }
     if (kind === 'move') {
       if (G.board.t[k]) {
-        els.forEach((e) => e.classList.remove('sel'));
+        els.forEach((e) => e.classList.remove('sel')); clearHints();
         if (G.sel === k) { G.sel = null; return; }
-        G.sel = k; els.get(G.board.t[k].id).classList.add('sel'); SFX.rotate();
+        G.sel = k; els.get(G.board.t[k].id).classList.add('sel'); SFX.rotate(); vibe(6);
+        if (cfg().needPath !== false) L.reachable(G.board, k).forEach((x) => cellEls.get(x) && cellEls.get(x).classList.add('target'));
       } else if (G.sel) doMove(G.sel, k);
     }
   });
@@ -504,12 +536,16 @@
   function openMenu() { renderMenu(); showModal('menuModal'); }
   function renderMenu() {
     const ml = $('modeList'); ml.innerHTML = '';
-    for (const m in MODES) {
+    for (const m of MODE_ORDER) {
       const b = document.createElement('button'); b.className = 'mode' + (m === settings.mode ? ' on' : '');
-      b.innerHTML = `<b>${MODES[m].name}${m === 'four' ? ' <small>（默认）</small>' : ''}</b><small>${MODES[m].desc}</small>`;
+      b.innerHTML = `<b>${MODES[m].name}${m === 'move' ? ' <small>（默认·原版）</small>' : ''}</b><small>${MODES[m].desc}</small>`;
       b.onclick = () => { if (m !== settings.mode) { hideModal('overModal'); switchTo(m); } }; ml.appendChild(b);
     }
-    [...$('sizeSeg').children].forEach((b) => { b.classList.toggle('on', +b.dataset.r === radius()); b.onclick = () => { if (+b.dataset.r !== radius()) { hideModal('overModal'); switchTo(settings.mode, +b.dataset.r); } }; });
+    const seg = $('sizeSeg'); seg.innerHTML = '';
+    for (const [r, label] of (SIZES[settings.mode] || SIZES.other)) {
+      const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', String(r) === String(radius()));
+      b.onclick = () => { if (String(r) !== String(radius())) { hideModal('overModal'); switchTo(settings.mode, r); } }; seg.appendChild(b);
+    }
     $('tSound').classList.toggle('on', settings.sound); $('tVibe').classList.toggle('on', settings.vibe);
     $('rules').innerHTML = `<b>「${MODES[settings.mode].name}」规则</b><ul>${RULES[settings.mode].map((x) => `<li>${x}</li>`).join('')}</ul>`;
   }

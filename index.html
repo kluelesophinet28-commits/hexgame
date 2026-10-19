@@ -25,6 +25,7 @@
       <div class="scorebox best"><span>最高</span><b id="best">0</b></div>
     </div>
   </header>
+  <div id="queueBar" class="hidden"><span>即将<br>出现</span><div id="qRow"></div></div>
   <main id="stage">
     <div id="board" aria-label="棋盘">
       <div id="cellsLayer"></div>
@@ -69,7 +70,7 @@
     <h2>玩法与设置</h2>
     <div id="modeList"></div>
     <div class="setrow"><label>棋盘大小</label>
-      <div class="seg" id="sizeSeg"><button data-r="2">小·19格</button><button data-r="3">中·37格</button><button data-r="4">大·61格</button></div></div>
+      <div class="seg" id="sizeSeg"></div></div>
     <div class="setrow"><label>音效</label><button class="toggle" id="tSound"></button></div>
     <div class="setrow"><label>震动（安卓）</label><button class="toggle" id="tVibe"></button></div>
     <div id="rules"></div>
