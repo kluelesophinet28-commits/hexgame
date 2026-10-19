@@ -152,3 +152,14 @@ h1{margin:0;font-size:22px;letter-spacing:1px;white-space:nowrap}
 .inner.glow{filter:drop-shadow(0 0 6px var(--glow)) drop-shadow(0 0 2px var(--glow))}
 .inner.glow .hex.face::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.35) 50%,rgba(255,255,255,0) 70%);background-size:250% 100%;animation:shine 2.4s linear infinite}
 @keyframes shine{from{background-position:150% 0}to{background-position:-100% 0}}
+
+/* 配色方案的质感差异 */
+body.pal-A .hex.face::before{opacity:.55}
+body.pal-A .hex.base{filter:brightness(.78) saturate(.9)}
+/* 白字加深色描边，保证在金/琥珀等浅底上也清晰 */
+body.pal-B .hex.face{text-shadow:1px 0 0 rgba(90,35,0,.62),-1px 0 0 rgba(90,35,0,.62),0 1px 0 rgba(90,35,0,.62),0 -1px 0 rgba(90,35,0,.62),0 0 2px rgba(70,25,0,.7),0 2px 3px rgba(0,0,0,.35)}
+body.pal-B .hex.face::before{opacity:1;background:linear-gradient(rgba(255,255,255,.55),rgba(255,255,255,0))}
+body.pal-C .hex.face{text-shadow:0 1px 2px rgba(0,0,0,.45)}
+body.pal-C .hex.face::before{opacity:.5}
+body.pal-C .hex.face{background-image:linear-gradient(150deg,rgba(255,255,255,.18) 0%,rgba(255,255,255,0) 38%,rgba(0,0,0,0) 62%,rgba(0,0,0,.22) 100%)!important}
+body.pal-C .hex.base{filter:brightness(.5)}

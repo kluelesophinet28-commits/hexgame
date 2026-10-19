@@ -24,11 +24,23 @@
   };
   // 1 系（1,4,16,64…，log2 为偶数）= 暖色；2 系（2,8,32,128…，log2 为奇数）= 冷色。[底色, 文字色]
   // 每个值色相/明度都拉开（CIEDE2000：任意两值 ≥18，同系相邻 ≥25，见 tests/move-e2e.js）
-  const WARM = [['#fff06a', '#4a3a00'], ['#ff9124', '#4a2200'], ['#ff4b4b', '#fff'], ['#ff8fd0', '#5a0f3a'], ['#8e1430', '#fff'], ['#9c6b25', '#fff'], ['#2a0a0e', '#ffd36b']];
-  const COOL = [['#7ee8a0', '#0b3d22'], ['#0b7a5c', '#fff'], ['#3fd6f0', '#063a48'], ['#1f5fff', '#fff'], ['#b8b5ff', '#241a66'], ['#9b22c9', '#fff'], ['#141c4a', '#8ff0ff']];
+  // 配色方案：V8 = 当前线上（高对比、明暗交替）；A/B/C = 明度/彩度统一、靠色相区分（OKLCH 生成，见 tools/palopt.js）
+  // 1 系（1,4,16…）暖色，2 系（2,8,32…）冷色。每项 [底色, 文字色]
+  const PALETTES = {
+    V8: { name: '鲜明', warm: [['#fff06a', '#4a3a00'], ['#ff9124', '#4a2200'], ['#ff4b4b', '#fff'], ['#ff8fd0', '#5a0f3a'], ['#8e1430', '#fff'], ['#9c6b25', '#fff'], ['#2a0a0e', '#ffd36b']],
+      cool: [['#7ee8a0', '#0b3d22'], ['#0b7a5c', '#fff'], ['#3fd6f0', '#063a48'], ['#1f5fff', '#fff'], ['#b8b5ff', '#241a66'], ['#9b22c9', '#fff'], ['#141c4a', '#8ff0ff']],
+      glow: ['rgba(255,200,60,.95)', 'rgba(80,220,255,.95)'] },
+    A: { name: '马卡龙', warm: [['#fff1cf', '#3b2a4a'], ['#ffd5a4', '#3b2a4a'], ['#ffbe98', '#3b2a4a'], ['#ffa996', '#3b2a4a'], ['#fe98a2', '#3b2a4a'], ['#fe84b7', '#3b2a4a'], ['#ea7dd4', '#3b2a4a']], cool: [['#baf3b6', '#3b2a4a'], ['#7cedd2', '#3b2a4a'], ['#4fe3ef', '#3b2a4a'], ['#65d1fe', '#3b2a4a'], ['#84bfff', '#3b2a4a'], ['#9cacfe', '#3b2a4a'], ['#b693ff', '#3b2a4a']], glow: ['rgba(255,170,210,.95)', 'rgba(170,160,255,.95)'] },
+    B: { name: '糖果', warm: [['#d8ac00', '#fff'], ['#eb9a00', '#fff'], ['#fa8300', '#fff'], ['#ff6338', '#fff'], ['#ff4465', '#fff'], ['#f12b91', '#fff'], ['#d626bc', '#fff']], cool: [['#46d065', '#fff'], ['#14c998', '#fff'], ['#08bcb7', '#fff'], ['#13afcd', '#fff'], ['#069dee', '#fff'], ['#637fff', '#fff'], ['#9d4dfe', '#fff']], glow: ['rgba(255,120,220,.95)', 'rgba(160,110,255,.95)'] },
+    C: { name: '宝石', warm: [['#a7850c', '#fff'], ['#ae7104', '#fff'], ['#b75b04', '#fff'], ['#c33917', '#fff'], ['#c02246', '#fff'], ['#b30f6a', '#fff'], ['#9e068a', '#fff']], cool: [['#09924e', '#fff'], ['#0a8d76', '#fff'], ['#04868b', '#fff'], ['#047d9c', '#fff'], ['#036eba', '#fff'], ['#484fd4', '#fff'], ['#732ebf', '#fff']], glow: ['rgba(255,190,90,.9)', 'rgba(120,190,255,.9)'] },
+  };
+  const DEFAULT_PALETTE = 'B'; // 默认糖果配色；未在菜单中选过配色的用户都用它
+  let palKey = DEFAULT_PALETTE;
   function tileStyle(v) {
-    const n = Math.max(0, Math.round(Math.log2(v))); const warm = n % 2 === 0; const pal = warm ? WARM : COOL; const i = Math.floor(n / 2);
-    return { bg: pal[Math.min(i, pal.length - 1)][0], fg: pal[Math.min(i, pal.length - 1)][1], warm, over: i >= pal.length - 1 }; // over：顶级色（含超出调色板）加光晕
+    const P = PALETTES[palKey] || PALETTES.V8;
+    const n = Math.max(0, Math.round(Math.log2(v))); const warm = n % 2 === 0; const pal = warm ? P.warm : P.cool; const i = Math.floor(n / 2);
+    const e = pal[Math.min(i, pal.length - 1)];
+    return { bg: e[0], fg: e[1], warm, over: i >= pal.length - 1, glow: P.glow[warm ? 0 : 1] }; // over：顶级色（含超出调色板）加光晕
   }
   const colorOf = (v) => tileStyle(v).bg;
 
@@ -36,6 +48,9 @@
   const settings = Object.assign({ mode: 'move', sizes: {}, sound: true, vibe: true }, readJSON(LS + 'settings') || {});
   if (!(settings.ver >= 2)) { settings.ver = 2; settings.mode = 'move'; delete settings.sizes.move; } // v2：默认改为原版移动玩法
   if (!L.PRESETS[settings.mode]) settings.mode = 'move';
+  { const qp = new URLSearchParams(location.search).get('palette'); if (qp && PALETTES[qp.toUpperCase()]) settings.palette = qp.toUpperCase(); }
+  palKey = PALETTES[settings.palette] ? settings.palette : DEFAULT_PALETTE;
+  function applyPalette() { document.body.classList.remove('pal-V8', 'pal-A', 'pal-B', 'pal-C'); document.body.classList.add('pal-' + palKey); }
   function readJSON(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
   function writeJSON(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 存储已满或隐私模式 */ } }
   const saveSettings = () => writeJSON(LS + 'settings', settings);
@@ -149,8 +164,8 @@
     return Math.max(6, Math.min(byH, byW) * k);
   }
   function hexFace(v, w, h, s, k) {
-    const st = tileStyle(v); const col = st.bg; const dark = st.fg !== '#fff';
-    const glow = st.over ? ` glow" style="--glow:${st.warm ? 'rgba(255,200,60,.95)' : 'rgba(80,220,255,.95)'}` : '';
+    const st = tileStyle(v); const col = st.bg; const dark = st.fg !== '#fff' && palKey !== 'B' && palKey !== 'C';
+    const glow = st.over ? ` glow" style="--glow:${st.glow}` : '';
     return `<div class="inner${glow}"><div class="hex base" style="background:${col}"></div><div class="hex face${dark ? ' dark' : ''}" style="background:${col};color:${st.fg};font-size:${fontFor(v, w, h, k)}px"><span class="num">${v}</span></div></div>`;
   }
   function makeTile(t, k, anim) {
@@ -561,17 +576,20 @@
       const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', String(r) === String(radius()));
       b.onclick = () => { if (String(r) !== String(radius())) { hideModal('overModal'); switchTo(settings.mode, r); } }; seg.appendChild(b);
     }
+    const ps = $('palSeg'); ps.innerHTML = '';
+    for (const k of ['V8', 'A', 'B', 'C']) { const b = document.createElement('button'); b.textContent = PALETTES[k].name; b.classList.toggle('on', k === palKey);
+      b.onclick = () => { palKey = settings.palette = k; saveSettings(); applyPalette(); layout(); renderMenu(); }; ps.appendChild(b); }
     $('tSound').classList.toggle('on', settings.sound); $('tVibe').classList.toggle('on', settings.vibe);
     $('rules').innerHTML = `<b>「${MODES[settings.mode].name}」规则</b><ul>${RULES[settings.mode].map((x) => `<li>${x}</li>`).join('')}</ul>`;
   }
 
   // ---------------- boot ----------------
-  loadOrNew(); shown = G.score;
+  applyPalette(); loadOrNew(); shown = G.score;
   let rt = 0; const relayout = () => { clearTimeout(rt); rt = setTimeout(layout, 80); };
   window.addEventListener('resize', relayout); window.addEventListener('orientationchange', relayout);
   document.addEventListener('visibilitychange', () => { if (document.hidden && G) save(); });
   window.addEventListener('pagehide', () => G && save());
   requestAnimationFrame(() => { layout(); checkOver(); if (!localStorage.getItem(LS + 'seenRules')) { localStorage.setItem(LS + 'seenRules', '1'); openMenu(); } });
   if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.__INLINE__) navigator.serviceWorker.register('sw.js').catch(() => {});
-  window.__hex = { setTool, doClear5, get geo() { return geo; }, loadState(d) { G = fromData(d); save(); els.forEach((e) => e.remove()); els.clear(); shown = G.score; hideModal('overModal'); layout(); checkOver(); }, get G() { return G; }, L, settings, doPlace, doSlide, doMove, doForce, doReroll, doUndo, restart, switchTo, isOver, cellPos, get busy() { return busy; } };
+  window.__hex = { get palKey() { return palKey; }, PALETTES, setPalette(k) { palKey = settings.palette = k; saveSettings(); applyPalette(); layout(); }, setTool, doClear5, get geo() { return geo; }, loadState(d) { G = fromData(d); save(); els.forEach((e) => e.remove()); els.clear(); shown = G.score; hideModal('overModal'); layout(); checkOver(); }, get G() { return G; }, L, settings, doPlace, doSlide, doMove, doForce, doReroll, doUndo, restart, switchTo, isOver, cellPos, get busy() { return busy; } };
 })();
