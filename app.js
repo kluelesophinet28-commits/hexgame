@@ -93,7 +93,7 @@
   // sy：竖向拉伸系数（≤1.18），让棋盘在宽度受限时也能填满高度
   function axialPx(q, r, s, flat, sy = geo.sy || 1, sx = geo.sx || 1) { return flat ? { x: sx * s * 1.5 * q, y: sy * s * SQ3 * (r + q / 2) } : { x: sx * s * SQ3 * (q + r / 2), y: sy * s * 1.5 * r }; }
   function cellPos(k) { const { q, r } = L.parse(k); const p = axialPx(q, r, geo.s, geo.flat); return { x: geo.ox + p.x, y: geo.oy + p.y }; }
-  const SY_MAX = 1.45, SX_MAX = 1.3;
+  const SY_MAX = 1, SX_MAX = 1; // 始终保持正六边形（不做非等比拉伸）
   function computeGeo() {
     const st = $('stage').getBoundingClientRect();
     const W = st.width, H = st.height;
@@ -133,10 +133,16 @@
       d.style.transform = `translate(${p.x - w / 2}px,${p.y - h / 2}px)`; L1.appendChild(d); cellEls.set(c.k, d);
     }
   }
-  function fontFor(v, s) { const n = String(v).length; return s * [0, 0.95, 0.85, 0.66, 0.52, 0.43][Math.min(n, 5)]; }
-  function hexFace(v, w, h, s) {
+  // 数字字号：1–2 位约为六边形高度的 32%，位数越多越小，且保证在宽度内留白
+  function fontFor(v, w, h, k = 1) {
+    const n = String(v).length;
+    const byH = h * [0, 0.33, 0.32, 0.27, 0.22, 0.18, 0.15][Math.min(n, 6)];
+    const byW = (w * 0.66) / (n * 0.6); // 内切宽度约 66%（留边距），数字宽约 0.6em
+    return Math.max(6, Math.min(byH, byW) * k);
+  }
+  function hexFace(v, w, h, s, k) {
     const col = colorOf(v);
-    return `<div class="inner"><div class="hex base" style="background:${col}"></div><div class="hex face" style="background:${col};font-size:${fontFor(v, s)}px"><span class="num">${v}</span></div></div>`;
+    return `<div class="inner"><div class="hex base" style="background:${col}"></div><div class="hex face" style="background:${col};font-size:${fontFor(v, w, h, k)}px"><span class="num">${v}</span></div></div>`;
   }
   function makeTile(t, k, anim) {
     const { w, h } = hexSize(); const d = document.createElement('div');
@@ -161,7 +167,7 @@
   }
 
   // ---------------- tray / pieces ----------------
-  function pieceEl(piece, s) {
+  function pieceEl(piece, s, k) {
     const offs = L.pieceOffsets(piece).map((o) => axialPx(o.q, o.r, s, geo.flat));
     const mx = offs.reduce((a, o) => a + o.x, 0) / offs.length, my = offs.reduce((a, o) => a + o.y, 0) / offs.length;
     const { w, h } = hexSize(0.94, s);
@@ -170,13 +176,13 @@
     offs.forEach((o, i) => {
       const d = document.createElement('div'); d.className = 'tile'; d.style.width = w + 'px'; d.style.height = h + 'px';
       d.style.transform = `translate(${o.x - mx + W / 2 - w / 2}px,${o.y - my + H / 2 - h / 2}px)`;
-      d.innerHTML = hexFace(piece.values[i], w, h, s); box.appendChild(d);
+      d.innerHTML = hexFace(piece.values[i], w, h, s, k); box.appendChild(d);
     });
     return { box, W, H, mid: { x: mx, y: my }, offs };
   }
-  function placeInSlot(slot, piece, s) {
+  function placeInSlot(slot, piece, s, k) {
     slot.innerHTML = ''; if (!piece) return;
-    const p = pieceEl(piece, s); p.box.style.left = (slot.clientWidth - p.W) / 2 + 'px'; p.box.style.top = (slot.clientHeight - p.H) / 2 + 'px';
+    const p = pieceEl(piece, s, k); p.box.style.left = (slot.clientWidth - p.W) / 2 + 'px'; p.box.style.top = (slot.clientHeight - p.H) / 2 + 'px';
     slot.appendChild(p.box);
   }
   function renderTray() {
@@ -197,7 +203,7 @@
     $('tools').style.gridTemplateColumns = `repeat(${[...$('tools').children].filter((b) => !b.classList.contains('hidden')).length},1fr)`;
     if (isMove) { // 顶部「即将出现」队列
       const row = $('qRow'); row.innerHTML = '';
-      G.queue.forEach((v, i) => { const d = document.createElement('div'); d.className = 'slot' + (i === 0 ? ' first' : ''); row.appendChild(d); placeInSlot(d, { values: [v], orient: 0 }, Math.min(d.clientWidth / 2.05, d.clientHeight / (geo.flat ? 1.8 : 2.1) / (geo.sy || 1))); });
+      G.queue.forEach((v, i) => { const d = document.createElement('div'); d.className = 'slot' + (i === 0 ? ' first' : ''); row.appendChild(d); placeInSlot(d, { values: [v], orient: 0 }, Math.min(d.clientWidth / (geo.flat ? 2.1 : 1.85), d.clientHeight / (geo.flat ? 1.85 : 2.1)), 1.45); /* 队列小块：字号≈块高 48%（比旧版略小） */ });
       return;
     }
     if (!isPlace) return;
