@@ -96,7 +96,7 @@
   const SY_MAX = 1, SX_MAX = 1; // 始终保持正六边形（不做非等比拉伸）
   function computeGeo() {
     const st = $('stage').getBoundingClientRect();
-    const W = st.width, H = st.height;
+    const W = st.width * BOARD_FIT, H = st.height * BOARD_FIT;
     const bounds = (flat) => { // 以 s=1 计算棋盘外接框
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; const hw = flat ? 1 : SQ3 / 2, hh = flat ? SQ3 / 2 : 1;
       for (const c of G.board.cells) { const p = axialPx(c.q, c.r, 1, flat, 1, 1); x0 = Math.min(x0, p.x - hw); x1 = Math.max(x1, p.x + hw); y0 = Math.min(y0, p.y - hh); y1 = Math.max(y1, p.y + hh); }
@@ -123,20 +123,21 @@
     const bd = $('board'); bd.style.width = geo.w + 'px'; bd.style.height = geo.h + 'px';
     buildCells(); els.forEach((e) => e.remove()); els.clear(); syncTiles(); renderTray();
   }
-  function hexSize(scale = 0.94, s = geo.s) { const sy = geo.sy || 1, sx = geo.sx || 1; return geo.flat ? { w: sx * 2 * s * scale, h: sy * SQ3 * s * scale } : { w: sx * SQ3 * s * scale, h: sy * 2 * s * scale }; }
+  const TILE_SCALE = 0.86, CELL_SCALE = 0.88, BOARD_FIT = 0.92; // 方块占格子 86%（留缝）；棋盘占可用区域 92%（留边）
+  function hexSize(scale = TILE_SCALE, s = geo.s) { const sy = geo.sy || 1, sx = geo.sx || 1; return geo.flat ? { w: sx * 2 * s * scale, h: sy * SQ3 * s * scale } : { w: sx * SQ3 * s * scale, h: sy * 2 * s * scale }; }
   function buildCells() {
     const L1 = $('cellsLayer'); L1.innerHTML = ''; cellEls.clear();
-    const { w, h } = hexSize(0.97);
+    const { w, h } = hexSize(CELL_SCALE);
     for (const c of G.board.cells) {
       const d = document.createElement('div'); d.className = 'cell'; d.dataset.k = c.k;
       const p = cellPos(c.k); d.style.width = w + 'px'; d.style.height = h + 'px';
       d.style.transform = `translate(${p.x - w / 2}px,${p.y - h / 2}px)`; L1.appendChild(d); cellEls.set(c.k, d);
     }
   }
-  // 数字字号：1–2 位约为六边形高度的 32%，位数越多越小，且保证在宽度内留白
+  // 数字字号：1–2 位约为方块高度的 40%，位数越多越小，且保证在宽度内留白
   function fontFor(v, w, h, k = 1) {
     const n = String(v).length;
-    const byH = h * [0, 0.33, 0.32, 0.27, 0.22, 0.18, 0.15][Math.min(n, 6)];
+    const byH = h * [0, 0.41, 0.39, 0.31, 0.25, 0.2, 0.17][Math.min(n, 6)];
     const byW = (w * 0.66) / (n * 0.6); // 内切宽度约 66%（留边距），数字宽约 0.6em
     return Math.max(6, Math.min(byH, byW) * k);
   }
@@ -170,7 +171,7 @@
   function pieceEl(piece, s, k) {
     const offs = L.pieceOffsets(piece).map((o) => axialPx(o.q, o.r, s, geo.flat));
     const mx = offs.reduce((a, o) => a + o.x, 0) / offs.length, my = offs.reduce((a, o) => a + o.y, 0) / offs.length;
-    const { w, h } = hexSize(0.94, s);
+    const { w, h } = hexSize(TILE_SCALE, s);
     const W = Math.max(...offs.map((o) => Math.abs(o.x - mx))) * 2 + w, H = Math.max(...offs.map((o) => Math.abs(o.y - my))) * 2 + h;
     const box = document.createElement('div'); box.className = 'piece'; box.style.width = W + 'px'; box.style.height = H + 'px';
     offs.forEach((o, i) => {
@@ -203,7 +204,7 @@
     $('tools').style.gridTemplateColumns = `repeat(${[...$('tools').children].filter((b) => !b.classList.contains('hidden')).length},1fr)`;
     if (isMove) { // 顶部「即将出现」队列
       const row = $('qRow'); row.innerHTML = '';
-      G.queue.forEach((v, i) => { const d = document.createElement('div'); d.className = 'slot' + (i === 0 ? ' first' : ''); row.appendChild(d); placeInSlot(d, { values: [v], orient: 0 }, Math.min(d.clientWidth / (geo.flat ? 2.1 : 1.85), d.clientHeight / (geo.flat ? 1.85 : 2.1)), 1.45); /* 队列小块：字号≈块高 48%（比旧版略小） */ });
+      G.queue.forEach((v, i) => { const d = document.createElement('div'); d.className = 'slot' + (i === 0 ? ' first' : ''); row.appendChild(d); placeInSlot(d, { values: [v], orient: 0 }, Math.min(d.clientWidth / (geo.flat ? 2.1 : 1.85), d.clientHeight / (geo.flat ? 1.7 : 1.95)), 1.25); /* 队列：同样的方块比例，字号≈块高 50% */ });
       return;
     }
     if (!isPlace) return;
