@@ -23,8 +23,9 @@
     slide: ['向 6 个方向滑动（键盘 Q/W/E/A/S/D/Z/C 或方向键）。', '相同数字相撞合成为 2 倍，每块每步只合成一次。', '每次有效滑动后随机出现一个 2 或 4。', '六个方向都动不了时游戏结束。'],
   };
   // 1 系（1,4,16,64…，log2 为偶数）= 暖色；2 系（2,8,32,128…，log2 为奇数）= 冷色。[底色, 文字色]
-  const WARM = [['#fff1a1', '#5a3d00'], ['#ffc83d', '#4a2c00'], ['#ff8a1f', '#fff'], ['#ff5f2e', '#fff'], ['#e8323c', '#fff'], ['#c4134f', '#fff'], ['#a3126e', '#fff']];
-  const COOL = [['#a6f3ff', '#0b3a4a'], ['#1fa2ec', '#fff'], ['#2a72f0', '#fff'], ['#3d3fcf', '#fff'], ['#7442e0', '#fff'], ['#5626a8', '#fff'], ['#3c1680', '#fff']];
+  // 每个值色相/明度都拉开（CIEDE2000：任意两值 ≥18，同系相邻 ≥25，见 tests/move-e2e.js）
+  const WARM = [['#fff06a', '#4a3a00'], ['#ff9124', '#4a2200'], ['#ff4b4b', '#fff'], ['#ff8fd0', '#5a0f3a'], ['#8e1430', '#fff'], ['#9c6b25', '#fff'], ['#2a0a0e', '#ffd36b']];
+  const COOL = [['#7ee8a0', '#0b3d22'], ['#0b7a5c', '#fff'], ['#3fd6f0', '#063a48'], ['#1f5fff', '#fff'], ['#b8b5ff', '#241a66'], ['#9b22c9', '#fff'], ['#141c4a', '#8ff0ff']];
   function tileStyle(v) {
     const n = Math.max(0, Math.round(Math.log2(v))); const warm = n % 2 === 0; const pal = warm ? WARM : COOL; const i = Math.floor(n / 2);
     return { bg: pal[Math.min(i, pal.length - 1)][0], fg: pal[Math.min(i, pal.length - 1)][1], warm, over: i >= pal.length - 1 }; // over：顶级色（含超出调色板）加光晕
@@ -149,7 +150,7 @@
   }
   function hexFace(v, w, h, s, k) {
     const st = tileStyle(v); const col = st.bg; const dark = st.fg !== '#fff';
-    const glow = st.over ? ` glow" style="--glow:${st.warm ? 'rgba(255,90,140,.85)' : 'rgba(150,110,255,.9)'}` : '';
+    const glow = st.over ? ` glow" style="--glow:${st.warm ? 'rgba(255,200,60,.95)' : 'rgba(80,220,255,.95)'}` : '';
     return `<div class="inner${glow}"><div class="hex base" style="background:${col}"></div><div class="hex face${dark ? ' dark' : ''}" style="background:${col};color:${st.fg};font-size:${fontFor(v, w, h, k)}px"><span class="num">${v}</span></div></div>`;
   }
   function makeTile(t, k, anim) {
