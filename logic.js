@@ -37,13 +37,14 @@
     },
     move: {             // 默认（用户确认的原版玩法）：点选棋盘上的块→点空格移动；4 连 ×4；之后从「即将出现」队列落下新块
       kind: 'move', radius: 'rect', minGroup: 4, chainMinGroup: 4, factor: 4, explodeAt: 0,
-      queue: 5,           // 显示的即将出现数量
-      spawnNoMerge: 5,    // 本步没有合成：落下几个（取队列前 N 个）
+      queue: 3,           // 显示的即将出现数量
+      spawnNoMerge: 3,    // 本步没有合成：落下几个（取队列前 N 个）
       spawnOnMerge: 0,    // 本步有合成：落下几个
       spawnResolve: true, // 落下的块若凑成 4 连也会合成
       needPath: true,     // 默认需要空格通路（BFS）；false = 可瞬移到任意空格
       startTiles: 7,
-      scale: true,        // 新块数值随进度增长（不超过 最大块/4）
+      scale: false,       // true = 新块数值随进度增长（旧规则，不超过 最大块/4）
+      spawnWeights: { 1: 45, 2: 45, 4: 5, 8: 5 }, // 新块数值权重（上限 8，不随进度变化）
       items: { reroll: 0, force: 1 },
     },
     slide: { kind: 'slide', radius: 2, four: 0.1, items: { reroll: 0, force: 0 } }, // 六向滑动 2048（19 格）
@@ -222,7 +223,11 @@
     for (const p of pool) if ((x -= p[1]) < 0) return p[0];
     return 1;
   }
-  function nextValue(board, cfg, rand) { return cfg.scale ? scaledValue(board.maxValue(), rand) : randomValue(board.maxValue(), rand, cfg); }
+  function weightedValue(w, rand) {
+    const e = Object.entries(w).map(([v, x]) => [+v, +x]).filter((p) => p[1] > 0); const tot = e.reduce((a, p) => a + p[1], 0);
+    let x = rng(rand) * tot; for (const p of e) if ((x -= p[1]) < 0) return p[0]; return e[0][0];
+  }
+  function nextValue(board, cfg, rand) { return cfg.spawnWeights ? weightedValue(cfg.spawnWeights, rand) : cfg.scale ? scaledValue(board.maxValue(), rand) : randomValue(board.maxValue(), rand, cfg); }
   function fillQueue(board, queue, cfg, rand) { while (queue.length < (cfg.queue || 5)) queue.push(nextValue(board, cfg, rand)); return queue; }
 
   /**
@@ -311,7 +316,7 @@
     return false;
   }
 
-  const api = { reachable, scaledValue, nextValue, fillQueue, makeRectCells, clearCells, clearRandom, clearType, DIRS, DEFAULTS, PRESETS, resolve, forceMerge, findPath, moveTile, canMoveAny, key, parse, makeCells, Board, newTile, setNextId,
+  const api = { weightedValue, reachable, scaledValue, nextValue, fillQueue, makeRectCells, clearCells, clearRandom, clearType, DIRS, DEFAULTS, PRESETS, resolve, forceMerge, findPath, moveTile, canMoveAny, key, parse, makeCells, Board, newTile, setNextId,
     randomValue, randomPiece, pieceOffsets, rotatePiece, pieceTargets, canPlaceAnywhere, groupOf, placePiece,
     lines, slide, spawn, canSlide };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.HexLogic = api;

@@ -10,7 +10,7 @@
   const MODES = {
     four: { name: '四连合成', desc: '放置随机数字块，4 个及以上相同数字相连 → 合成为 4 倍（1→4→16→64…，2→8→32→128…），可连锁。', tip: '拖动数字块到棋盘（或直接点空格放置）' },
     three: { name: '三消合成', desc: '单格/双格棋子（点一下可旋转），3 个相同相连 → 翻倍，连消时 2 个即可；合成 2048 会爆炸清除周围一圈。', tip: '拖动棋子到棋盘 · 点棋子旋转' },
-    move: { name: '经典移动', desc: '原版玩法：点选棋盘上的数字块，再点空格沿通路移动过去；4 个及以上相同相连 → 4 倍。没合成时，上方「即将出现」的 5 个数字会落到随机空格。', tip: '点选数字块，再点空格移动' },
+    move: { name: '经典移动', desc: '原版玩法：点选棋盘上的数字块，再点空格沿通路移动过去；4 个及以上相同相连 → 4 倍。没合成时，上方「即将出现」的 3 个数字会落到随机空格。', tip: '点选数字块，再点空格移动' },
     slide: { name: '六向滑动', desc: '经典 2048 的六边形版：向 6 个方向滑动，所有块一起移动，两个相同相撞 → 翻倍。', tip: '在棋盘上向 6 个方向滑动' },
   };
   const DEFAULT_SIZE = { four: 3, three: 3, move: 'rect', slide: 2 };
@@ -19,7 +19,7 @@
   const RULES = {
     four: ['每回合得到一个随机数字块（下方显示接下来的块）。', '把它放到任意空格。', '<b>4 个或更多</b>相同数字相连时，合成为 <b>4 倍</b>，出现在最后放下的位置：四个 1 → 4，四个 2 → 8，四个 4 → 16，四个 8 → 32 …', '合成后的新数字若又凑够 4 个相连，会继续连锁合成，分数按连击倍增。', '道具（无限次，均可撤销）：🎲 换数字 —— 更换即将出现的数字；⚡ 强制合成 —— 点选一组相连的相同数字（≥2 个）直接合成；🔨 清除一格；💥 随机清除 5 格；🧹 清除同类 —— 点一个数字，清除棋盘上所有相同数字；↶ 撤销 —— 最多连续撤销 50 步。', '棋盘放满（无处可放）即游戏结束。'],
     three: ['把下方棋子拖到棋盘空位，双格棋子点一下可旋转。', '3 个或以上相同数字相连 → 合成为 2 倍；连消时只需 2 个相同。', '合成出 2048 会爆炸，清除它周围一圈。', '没有位置能放下当前棋子时游戏结束。'],
-    move: ['棋盘上已有数字块。点选一个数字块（高亮，可到达的空格会亮起），再点一个空格：只要有空格连成的通路就能移动过去，被挡住则「过不去」，不算一步。', '移动后若有 <b>4 个或更多</b>相同数字相连，合成为 <b>4 倍</b>（四个 1 → 4，四个 2 → 8，四个 4 → 16，四个 8 → 32 …），出现在移动到的位置，可连锁。', '这一步<b>没有合成</b>：上方「即将出现」的 5 个数字会落到随机空格；有合成则不落新块。', '新数字随进度变大：开始以 1、2 为主，最大不超过棋盘最大块的 1/4。', '道具全部无限次：🎲 换数字、⚡ 强制合成、🔨 清除一格、💥 随机清5、🧹 清除同类、↶ 撤销（最多 50 步）。', '棋盘满了游戏结束。'],
+    move: ['棋盘上已有数字块。点选一个数字块（高亮，可到达的空格会亮起），再点一个空格：只要有空格连成的通路就能移动过去，被挡住则「过不去」，不算一步。', '移动后若有 <b>4 个或更多</b>相同数字相连，合成为 <b>4 倍</b>（四个 1 → 4，四个 2 → 8，四个 4 → 16，四个 8 → 32 …），出现在移动到的位置，可连锁。', '这一步<b>没有合成</b>：上方「即将出现」的 3 个数字会落到随机空格；有合成则不落新块。', '新数字大多是 1 和 2，偶尔出现 4 或 8（最大 8）。', '道具全部无限次：🎲 换数字、⚡ 强制合成、🔨 清除一格、💥 随机清5、🧹 清除同类、↶ 撤销（最多 50 步）。', '棋盘满了游戏结束。'],
     slide: ['向 6 个方向滑动（键盘 Q/W/E/A/S/D/Z/C 或方向键）。', '相同数字相撞合成为 2 倍，每块每步只合成一次。', '每次有效滑动后随机出现一个 2 或 4。', '六个方向都动不了时游戏结束。'],
   };
   // 1 系（1,4,16,64…，log2 为偶数）= 暖色；2 系（2,8,32,128…，log2 为奇数）= 冷色。[底色, 文字色]
@@ -65,7 +65,7 @@
   const cellEls = new Map();
 
   function serialize(withSnap = true) {
-    return { v: 1, board: G.board.toJSON(), queue: G.queue, score: G.score, items: G.items, merges: G.merges,
+    return { v: 1, rules: SPAWN_RULES, board: G.board.toJSON(), queue: G.queue, score: G.score, items: G.items, merges: G.merges,
       hist: withSnap ? G.hist : [], over: G.over, moves: G.moves };
   }
   function save() { writeJSON(LS + 'state:' + slotKey(), serialize()); updateBest(); }
@@ -100,12 +100,20 @@
       if (d && d.v === 1) {
         G = fromData(d); const c = cfg(); ok = true;
         if (c.kind === 'place') { if (!G.queue.length || typeof G.queue[0] !== 'object') ok = false; else while (G.queue.length < c.queue) G.queue.push(L.randomPiece(G.board, c)); }
-        if (c.kind === 'move') { G.queue = G.queue.filter((v) => typeof v === 'number'); L.fillQueue(G.board, G.queue, c); }
+        if (c.kind === 'move') {
+          if (d.rules !== SPAWN_RULES) { // 旧存档：保留棋盘，按新规则重新生成队列（撤销历史里的队列也一并更新）
+            G.queue = freshQueue(G.board, c);
+            G.hist.forEach((h) => { try { h.queue = freshQueue(G.board, c); h.rules = SPAWN_RULES; } catch (e) {} });
+          }
+          G.queue = G.queue.filter((v) => typeof v === 'number').slice(0, c.queue); L.fillQueue(G.board, G.queue, c);
+        }
         if (!G.board.cells.length) ok = false;
       }
     } catch (e) { ok = false; } // 旧存档损坏 → 新开一局
     if (!ok) newGame();
   }
+  const SPAWN_RULES = 2; // 落块规则版本：2 = 1/2 为主、上限 8、每次 3 个
+  function freshQueue(board, c) { const q = []; L.fillQueue(board, q, c); return q; }
   const HIST_MAX = 50; // 撤销历史最多 50 步（随自动存档一起保存）
   function pushHist(snap) { G.hist.push(snap); if (G.hist.length > HIST_MAX) G.hist.splice(0, G.hist.length - HIST_MAX); }
   function snapshot() { pushHist(JSON.parse(JSON.stringify(serialize(false)))); }
@@ -428,6 +436,7 @@
   function doUndo() {
     if (busy || !G.hist.length) return;
     const hist = G.hist; const snap = hist.pop(); G = fromData(snap); G.hist = hist; G.over = false;
+    if (cfg().kind === 'move') { G.queue = G.queue.filter((v) => typeof v === 'number').slice(0, cfg().queue); L.fillQueue(G.board, G.queue, cfg()); }
     save(); els.forEach((e) => e.remove()); els.clear(); syncTiles(); renderTray(); hideModal('overModal'); toast(G.hist.length ? `已撤销（还可再撤 ${G.hist.length} 步）` : '已撤销'); SFX.rotate();
   }
   function restart() { hideModal('overModal'); newGame(); els.forEach((e) => e.remove()); els.clear(); hint(''); layout(); shown = 0; }

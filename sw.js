@@ -1,4 +1,4 @@
-const CACHE = 'hex2048-v8';
+const CACHE = 'hex2048-v9';
 const ASSETS = ['./', 'index.html', 'style.css', 'logic.js', 'app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/icon-maskable-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
